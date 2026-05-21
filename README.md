@@ -2,6 +2,12 @@
 
 This project consists of a FastAPI backend and a static HTML frontend.
 
+## Prerequisites
+
+- **Python 3.10+**
+- **FFmpeg & FFprobe**: Required for video processing and metadata extraction.
+- **Node.js**: Required by `yt-dlp` as a JavaScript runtime for YouTube signature extraction. Install via `sudo apt install nodejs`.
+
 ## 1. Backend Deployment (Render / Vercel)
 
 ### Option A: Render (Recommended for Python)
