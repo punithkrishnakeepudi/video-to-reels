@@ -51,10 +51,13 @@ async def analyze(url: str):
     return JSONResponse(content=info)
 
 @app.get("/stream")
-async def stream_video(url: str, start: float = 0, duration: float = None, mode: str = "video"):
+async def stream_video(url: str, start: float = 0, duration: float = None, mode: str = "video", filename: str = None):
     """
     Streams video/audio using ffmpeg pipeline.
     """
+    if not filename:
+        filename = "video.mp4" if mode == "video" else "music.mp3"
+    
     # Use a broad format selection that is more likely to return a direct URL
     format_selector = 'best[ext=mp4]/best' if mode == "video" else 'bestaudio/best'
     
@@ -120,7 +123,7 @@ async def stream_video(url: str, start: float = 0, duration: float = None, mode:
             iterfile(), 
             media_type=media_type,
             headers={
-                "Content-Disposition": f"attachment; filename=\"{'video.mp4' if mode == 'video' else 'music.mp3'}\""
+                "Content-Disposition": f"attachment; filename=\"{filename}\""
             }
         )
     except Exception as e:
@@ -153,9 +156,12 @@ async def upload_analyze(file: UploadFile = File(...)):
     })
 
 @app.get("/stream_local")
-async def stream_local(path: str, start: float = 0, duration: float = None, mode: str = "video"):
+async def stream_local(path: str, start: float = 0, duration: float = None, mode: str = "video", filename: str = None):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
+    
+    if not filename:
+        filename = "video.mp4" if mode == "video" else "music.mp3"
 
     ffmpeg_cmd = [
         'ffmpeg',
@@ -196,7 +202,7 @@ async def stream_local(path: str, start: float = 0, duration: float = None, mode
         iterfile(), 
         media_type=media_type,
         headers={
-            "Content-Disposition": f"attachment; filename=\"{'video.mp4' if mode == 'video' else 'music.mp3'}\""
+            "Content-Disposition": f"attachment; filename=\"{filename}\""
         }
     )
 

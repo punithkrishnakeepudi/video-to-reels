@@ -158,13 +158,21 @@
         downloadAllReelsBtn.addEventListener('click', async () => {
             if (reelUrls.length === 0) return;
             
-            statusMsg.innerText = "Starting batch download... Your browser may ask for permission to download multiple files.";
-            statusMsg.classList.remove('hidden');
+            statusMsg.innerText = "Batch download started! Please check your downloads folder. Your browser may ask for permission to download multiple files.";
+            statusMsg.classList.remove('hidden', 'text-red-500');
             
             for (let i = 0; i < reelUrls.length; i++) {
-                downloadSegment(reelUrls[i], `reel-${i + 1}.mp4`);
-                // Short delay to prevent browser from blocking simultaneous downloads
-                await new Promise(resolve => setTimeout(resolve, 800));
+                const url = reelUrls[i];
+                // Trigger download by opening in a hidden iframe or simple window.open
+                // Using a small delay to ensure the browser captures each individual request
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = "_blank";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for stability
             }
             
             setTimeout(() => statusMsg.classList.add('hidden'), 5000);
@@ -180,13 +188,14 @@
                 const start = i * segmentDuration;
                 const end = Math.min((i + 1) * segmentDuration, totalDuration);
                 const actualDuration = end - start;
+                const fname = `reel-${i + 1}.mp4`;
 
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-xl shadow-md overflow-hidden flex flex-col border border-gray-100 hover:shadow-lg transition-all";
                 
                 const streamUrl = isUpload 
-                    ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&start=${start}&duration=${actualDuration}`
-                    : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&start=${start}&duration=${actualDuration}`;
+                    ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&start=${start}&duration=${actualDuration}&filename=${encodeURIComponent(fname)}`
+                    : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&start=${start}&duration=${actualDuration}&filename=${encodeURIComponent(fname)}`;
 
                 reelUrls.push(streamUrl);
 
