@@ -116,7 +116,13 @@ async def stream_video(url: str, start: float = 0, duration: float = None, mode:
                 process.stdout.close()
                 process.terminate()
 
-        return StreamingResponse(iterfile(), media_type=media_type)
+        return StreamingResponse(
+            iterfile(), 
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{'video.mp4' if mode == 'video' else 'music.mp3'}\""
+            }
+        )
     except Exception as e:
         print(f"Streaming error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -186,7 +192,13 @@ async def stream_local(path: str, start: float = 0, duration: float = None, mode
         process.stdout.close()
         process.wait()
 
-    return StreamingResponse(iterfile(), media_type=media_type)
+    return StreamingResponse(
+        iterfile(), 
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{'video.mp4' if mode == 'video' else 'music.mp3'}\""
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn
