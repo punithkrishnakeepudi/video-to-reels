@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video to Reel - Downloader & Segmenter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <div id="app" class="max-w-6xl mx-auto py-10 px-4">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Video to Reel</h1>
+            <p class="text-gray-600">Download, segment, and crop videos for social media.</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input id="urlInput" type="text" placeholder="Paste YouTube URL here..." 
+                    class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-indigo-500 outline-none transition-all">
+                <label class="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-lg px-6 py-3 cursor-pointer hover:bg-indigo-100 transition-all text-indigo-600 font-medium text-center">
+                    <span>Upload Video</span>
+                    <input id="fileInput" type="file" class="hidden" accept="video/*">
+                </label>
+                <button id="analyzeBtn" class="gradient-bg text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition-all">
+                    Analyze
+                </button>
+            </div>
+            <p id="statusMsg" class="mt-4 text-center text-sm font-medium text-gray-500 hidden"></p>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="hidden">
+            <!-- Video Info Card -->
+            <div id="videoInfo" class="bg-white rounded-xl shadow-md p-6 mb-8 flex flex-col md:flex-row gap-6 items-center">
+                <img id="videoThumb" src="" alt="Thumbnail" class="w-full md:w-64 h-36 object-cover rounded-lg shadow-sm">
+                <div class="flex-1">
+                    <h2 id="videoTitle" class="text-2xl font-bold text-gray-800 mb-2"></h2>
+                    <p id="videoDuration" class="text-gray-500 font-medium"></p>
+                </div>
+            </div>
+
+            <!-- Global Options -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <button onclick="downloadFull('video')" class="bg-white border-2 border-indigo-500 text-indigo-500 px-6 py-4 rounded-xl font-bold hover:bg-indigo-500 hover:text-white transition-all">
+                    Full Video (.mp4)
+                </button>
+                <button onclick="downloadFull('audio')" class="bg-white border-2 border-green-500 text-green-500 px-6 py-4 rounded-xl font-bold hover:bg-green-500 hover:text-white transition-all">
+                    Music Only (.mp3)
+                </button>
+                <button id="showReelsBtn" class="gradient-bg text-white px-6 py-4 rounded-xl font-bold hover:opacity-90 transition-all">
+                    Generate Reels
+                </button>
+                <button id="downloadAllReelsBtn" class="hidden bg-orange-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-orange-600 transition-all">
+                    Download All Reels
+                </button>
+            </div>
+
+            <!-- Reels Grid -->
+            <div id="reelsGridSection" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-800">Available Reel Segments</h3>
+                </div>
+                <div id="reelsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Segment Cards will be injected here -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Use 127.0.0.1 instead of localhost to avoid IPv6 issues
+        const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '') 
+            ? 'http://127.0.0.1:8000' 
+            : 'https://your-backend-url.onrender.com';
+        
+        console.log("Checking backend connection at:", API_BASE);
+        
+        const urlInput = document.getElementById('urlInput');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const statusMsg = document.getElementById('statusMsg');
+        const resultsSection = document.getElementById('resultsSection');
+        const videoTitle = document.getElementById('videoTitle');
+        const videoDuration = document.getElementById('videoDuration');
+        const videoThumb = document.getElementById('videoThumb');
+        const reelsGrid = document.getElementById('reelsGrid');
+        const reelsGridSection = document.getElementById('reelsGridSection');
+        const showReelsBtn = document.getElementById('showReelsBtn');
+        const downloadAllReelsBtn = document.getElementById('downloadAllReelsBtn');
+
+        let currentVideoData = null;
+        let isUpload = false;
+        let reelUrls = [];
+
+        analyzeBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!url && !file) {
+                alert("Please paste a URL or upload a file.");
+                return;
+            }
+
+            statusMsg.innerText = "Analyzing video... Please wait.";
+            statusMsg.classList.remove('hidden', 'text-red-500');
+            resultsSection.classList.add('hidden');
+            reelsGridSection.classList.add('hidden');
+            downloadAllReelsBtn.classList.add('hidden');
+
+            try {
+                if (file) {
+                    isUpload = true;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch(`${API_BASE}/upload_analyze`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!res.ok) throw new Error("Backend failed to process upload");
+                    currentVideoData = await res.json();
+                } else {
+                    isUpload = false;
+                    const res = await fetch(`${API_BASE}/analyze?url=${encodeURIComponent(url)}`);
+                    if (!res.ok) throw new Error("Backend failed to analyze URL");
+                    currentVideoData = await res.json();
+                }
+
+                displayResults(currentVideoData);
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                statusMsg.innerText = `Error: ${err.message || "Failed to connect to backend"}. Check backend terminal for details.`;
+                statusMsg.classList.add('text-red-500');
+            }
+        });
+
+        function displayResults(data) {
+            statusMsg.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            videoTitle.innerText = data.title;
+            videoDuration.innerText = `Duration: ${formatTime(data.duration)}`;
+            videoThumb.src = data.thumbnail || 'https://via.placeholder.com/640x360?text=Video+Ready';
+        }
+
+        showReelsBtn.addEventListener('click', () => {
+            generateReels(currentVideoData.duration);
+            reelsGridSection.classList.remove('hidden');
+            downloadAllReelsBtn.classList.remove('hidden');
+            reelsGridSection.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        downloadAllReelsBtn.addEventListener('click', async () => {
+            if (reelUrls.length === 0) return;
+            
+            statusMsg.innerText = "Starting batch download... Your browser may ask for permission to download multiple files.";
+            statusMsg.classList.remove('hidden');
+            
+            for (let i = 0; i < reelUrls.length; i++) {
+                downloadSegment(reelUrls[i], `reel-${i + 1}.mp4`);
+                // Short delay to prevent browser from blocking simultaneous downloads
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+            
+            setTimeout(() => statusMsg.classList.add('hidden'), 5000);
+        });
+
+        function generateReels(totalDuration) {
+            reelsGrid.innerHTML = '';
+            reelUrls = [];
+            const segmentDuration = 30;
+            const segments = Math.ceil(totalDuration / segmentDuration);
+
+            for (let i = 0; i < segments; i++) {
+                const start = i * segmentDuration;
+                const end = Math.min((i + 1) * segmentDuration, totalDuration);
+                const actualDuration = end - start;
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-md overflow-hidden flex flex-col border border-gray-100 hover:shadow-lg transition-all";
+                
+                const streamUrl = isUpload 
+                    ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&start=${start}&duration=${actualDuration}`
+                    : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&start=${start}&duration=${actualDuration}`;
+
+                reelUrls.push(streamUrl);
+
+                card.innerHTML = `
+                    <div class="aspect-video bg-black relative">
+                        <video controls class="w-full h-full" playsinline preload="metadata">
+                            <source src="${streamUrl}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <div class="p-4 flex-1">
+                        <h4 class="font-bold text-gray-800">Segment ${i + 1}</h4>
+                        <p class="text-sm text-gray-500 mb-4">${formatTime(start)} - ${formatTime(end)}</p>
+                        <button onclick="downloadSegment('${streamUrl}', 'reel-${i+1}.mp4')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all">
+                            Download This Reel
+                        </button>
+                    </div>
+                `;
+                reelsGrid.appendChild(card);
+            }
+        }
+
+        function downloadSegment(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            // For cross-origin streaming links, we want to force download instead of navigating
+            a.target = "_blank"; 
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function downloadFull(mode) {
+            const url = isUpload 
+                ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&mode=${mode}`
+                : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&mode=${mode}`;
+            
+            const ext = mode === 'audio' ? 'mp3' : 'mp4';
+            downloadSegment(url, `video.${ext}`);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                urlInput.value = `File: ${fileInput.files[0].name}`;
+            }
+        });
+    </script>
+</body>
+</html>
