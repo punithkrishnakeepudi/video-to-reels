@@ -3,252 +3,1173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video to Reel - Downloader & Segmenter</title>
+    <title>ReelForge — Instagram Automation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #1f1f36;
+            --border: #2a2a40;
+            --border-accent: #3a3a5c;
+            --text-primary: #e8e8f0;
+            --text-secondary: #9898b0;
+            --text-muted: #6b6b85;
+            --accent: #ff6b6b;
+            --accent-glow: rgba(255, 107, 107, 0.15);
+            --accent-gradient: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            --success: #2ed573;
+            --warning: #ffa502;
+            --info: #3498db;
+            --font-sans: 'DM Sans', sans-serif;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Noise Texture ───────────────────────────────*/
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            pointer-events: none; z-index: 9999;
+        }
+
+        /* ── Scrollbar ───────────────────────────────────*/
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Layout ──────────────────────────────────────*/
+        .app-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        /* ── Nav ─────────────────────────────────────────*/
+        .navbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 0; border-bottom: 1px solid var(--border);
+            margin-bottom: 40px; position: sticky; top: 0;
+            background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(16px);
+            z-index: 100;
+        }
+        .nav-logo {
+            font-family: var(--font-display); font-weight: 700;
+            font-size: 1.5rem; display: flex; align-items: center; gap: 10px;
+        }
+        .nav-logo .logo-icon {
+            width: 32px; height: 32px;
+            background: var(--accent-gradient); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; color: white;
+        }
+        .nav-links { display: flex; align-items: center; gap: 24px; }
+        .nav-link {
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: color 0.2s; cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active { color: var(--text-primary); }
+
+        /* ── Cards ───────────────────────────────────────*/
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .card:hover { border-color: var(--border-accent); }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-family: var(--font-display);
+            font-weight: 600; font-size: 1.125rem;
+        }
+
+        /* ── Buttons ─────────────────────────────────────*/
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 20px; border-radius: 10px;
+            font-family: var(--font-sans); font-weight: 600;
+            font-size: 0.875rem; cursor: pointer;
+            transition: all 0.2s; border: none;
+        }
+        .btn-primary {
+            background: var(--accent-gradient); color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+        .btn-secondary {
+            background: var(--bg-secondary); color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+        .btn-danger {
+            background: rgba(255, 107, 107, 0.1); color: var(--accent);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+        .btn-danger:hover { background: rgba(255, 107, 107, 0.2); }
+        .btn-ghost {
+            background: transparent; color: var(--text-secondary);
+        }
+        .btn-ghost:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 8px; }
+        .btn-xs { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+        /* ── Inputs ──────────────────────────────────────*/
+        .input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: var(--font-sans); font-size: 0.9rem;
+            outline: none; transition: border-color 0.2s;
+        }
+        .input:focus { border-color: var(--accent); }
+        .input::placeholder { color: var(--text-muted); }
+        .input-group { display: flex; gap: 12px; align-items: flex-end; }
+        .input-group .input { flex: 1; }
+
+        select.input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%236b6b85'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+        textarea.input { resize: vertical; min-height: 80px; }
+
+        /* ── Status Badges ───────────────────────────────*/
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        .badge-success { background: rgba(46, 213, 115, 0.1); color: var(--success); }
+        .badge-warning { background: rgba(255, 165, 2, 0.1); color: var(--warning); }
+        .badge-error { background: rgba(255, 107, 107, 0.1); color: var(--accent); }
+        .badge-info { background: rgba(52, 152, 219, 0.1); color: var(--info); }
+        .badge-neutral { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
+
+        /* ── Grid ────────────────────────────────────────*/
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .stat-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 20px;
+            transition: border-color 0.2s;
+        }
+        .stat-card:hover { border-color: var(--border-accent); }
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .stat-value { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; }
+        .stat-desc { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+
+        /* ── Tabs ────────────────────────────────────────*/
+        .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg-secondary); border-radius: 12px; padding: 4px; border: 1px solid var(--border); }
+        .tab {
+            flex: 1; padding: 10px 16px; text-align: center;
+            border-radius: 8px; cursor: pointer; font-weight: 500;
+            font-size: 0.85rem; color: var(--text-muted); transition: all 0.2s;
+        }
+        .tab:hover { color: var(--text-secondary); }
+        .tab.active { background: var(--bg-card-hover); color: var(--text-primary); }
+
+        /* ── Upload Zone ─────────────────────────────────*/
+        .upload-zone {
+            border: 2px dashed var(--border); border-radius: 16px;
+            padding: 48px 24px; text-align: center; cursor: pointer;
+            transition: all 0.3s; background: var(--bg-secondary);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent); background: var(--accent-glow);
+        }
+        .upload-zone-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+        .upload-zone-text { font-size: 1rem; color: var(--text-secondary); font-weight: 500; }
+        .upload-zone-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; }
+
+        /* ── Segment Card ────────────────────────────────*/
+        .segment-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px; overflow: hidden;
+            transition: all 0.2s;
+        }
+        .segment-card:hover { border-color: var(--border-accent); }
+        .segment-thumb {
+            aspect-ratio: 9/16; background: var(--bg-secondary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; position: relative;
+            overflow: hidden;
+        }
+        .segment-thumb::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 50%;
+            background: linear-gradient(transparent, rgba(0,0,0,0.6));
+        }
+        .segment-index {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            padding: 4px 10px; border-radius: 6px;
+            font-family: var(--font-mono); font-size: 0.8rem;
+        }
+        .segment-body { padding: 16px; }
+        .segment-caption {
+            font-size: 0.85rem; color: var(--text-secondary);
+            line-height: 1.5; margin-bottom: 12px;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .segment-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .segment-time {
+            font-family: var(--font-mono); font-size: 0.75rem;
+            color: var(--text-muted); margin-bottom: 8px;
+        }
+
+        /* ── Schedule List ───────────────────────────────*/
+        .schedule-item {
+            display: flex; align-items: center; gap: 16px;
+            padding: 14px 0; border-bottom: 1px solid var(--border);
+        }
+        .schedule-item:last-child { border-bottom: none; }
+        .schedule-index {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: var(--bg-secondary); display: flex;
+            align-items: center; justify-content: center;
+            font-family: var(--font-mono); font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .schedule-info { flex: 1; min-width: 0; }
+        .schedule-info-name { font-weight: 500; font-size: 0.9rem; }
+        .schedule-info-time { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        .schedule-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* ── Toast ───────────────────────────────────────*/
+        .toast-container {
+            position: fixed; bottom: 24px; right: 24px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+        }
+        .toast {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 14px 20px;
+            font-size: 0.875rem; color: var(--text-primary);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: toastIn 0.3s ease; max-width: 400px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .toast.error { border-color: rgba(255,107,107,0.3); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Modal ───────────────────────────────────────*/
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .modal {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 20px; padding: 32px; max-width: 500px;
+            width: 90%; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-title { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── Empty state ─────────────────────────────────*/
+        .empty-state {
+            text-align: center; padding: 48px 24px; color: var(--text-muted);
+        }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.3; }
+        .empty-state-text { font-size: 1rem; }
+        .empty-state-sub { font-size: 0.85rem; margin-top: 6px; }
+
+        /* ── Loading ─────────────────────────────────────*/
+        .loading-dots::after {
+            content: ''; display: inline-block;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+        .spinner {
+            width: 20px; height: 20px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin 0.6s linear infinite; display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Progress ────────────────────────────────────*/
+        .progress-bar {
+            width: 100%; height: 4px; background: var(--bg-secondary);
+            border-radius: 2px; overflow: hidden; margin: 12px 0;
+        }
+        .progress-fill {
+            height: 100%; background: var(--accent-gradient);
+            border-radius: 2px; transition: width 0.3s ease;
+        }
+
+        /* ── Empty & Sections ────────────────────────────*/
+        .section-title {
+            font-family: var(--font-display); font-weight: 700;
+            font-size: 1.25rem; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-title .count {
+            font-size: 0.8rem; color: var(--text-muted);
+            font-weight: 400; font-family: var(--font-sans);
+        }
+
+        /* ── Auth card ───────────────────────────────────*/
+        .account-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px 6px 6px; border-radius: 100px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+        }
+        .account-chip img {
+            width: 24px; height: 24px; border-radius: 50%;
+            object-fit: cover;
+        }
+        .account-chip span { font-size: 0.85rem; font-weight: 500; }
+
+        /* ── Responsive ──────────────────────────────────*/
+        @media (max-width: 768px) {
+            .app-wrapper { padding: 0 16px 40px; }
+            .navbar { flex-wrap: wrap; gap: 12px; }
+            .nav-links { display: none; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .modal { padding: 24px; }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
-    <div id="app" class="max-w-6xl mx-auto py-10 px-4">
-        <!-- Header -->
-        <header class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Video to Reel</h1>
-            <p class="text-gray-600">Download, segment, and crop videos for social media.</p>
-        </header>
+<body>
 
-        <!-- Input Section -->
-        <section class="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input id="urlInput" type="text" placeholder="Paste YouTube URL here..." 
-                    class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-indigo-500 outline-none transition-all">
-                <label class="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-lg px-6 py-3 cursor-pointer hover:bg-indigo-100 transition-all text-indigo-600 font-medium text-center">
-                    <span>Upload Video</span>
-                    <input id="fileInput" type="file" class="hidden" accept="video/*">
-                </label>
-                <button id="analyzeBtn" class="gradient-bg text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition-all">
-                    Analyze
-                </button>
-            </div>
-            <p id="statusMsg" class="mt-4 text-center text-sm font-medium text-gray-500 hidden"></p>
-        </section>
+<div class="app-wrapper" id="app">
+    <!-- ── Navbar ──────────────────────────────────────── -->
+    <nav class="navbar">
+        <div class="nav-logo">
+            <div class="logo-icon">R</div>
+            <span>ReelForge</span>
+        </div>
+        <div class="nav-links">
+            <a class="nav-link active" onclick="switchTab('dashboard')">Dashboard</a>
+            <a class="nav-link" onclick="switchTab('upload')">Upload</a>
+            <a class="nav-link" onclick="switchTab('schedule')">Schedule</a>
+            <button class="btn btn-primary btn-sm" onclick="connectInstagram()">+ Connect Instagram</button>
+        </div>
+    </nav>
 
-        <!-- Results Section -->
-        <section id="resultsSection" class="hidden">
-            <!-- Video Info Card -->
-            <div id="videoInfo" class="bg-white rounded-xl shadow-md p-6 mb-8 flex flex-col md:flex-row gap-6 items-center">
-                <img id="videoThumb" src="" alt="Thumbnail" class="w-full md:w-64 h-36 object-cover rounded-lg shadow-sm">
-                <div class="flex-1">
-                    <h2 id="videoTitle" class="text-2xl font-bold text-gray-800 mb-2"></h2>
-                    <p id="videoDuration" class="text-gray-500 font-medium"></p>
+    <!-- ── Connection Banner ───────────────────────────── -->
+    <div id="connectionBanner" class="card" style="margin-bottom: 24px; display: none; border-color: rgba(255,165,2,0.3);">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="font-size: 2rem;">🔌</div>
+            <div style="flex:1;">
+                <div style="font-weight: 600; font-size: 0.95rem;">Instagram Not Configured</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
+                    Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET in your .env file to connect Instagram accounts.
                 </div>
             </div>
-
-            <!-- Global Options -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <button onclick="downloadFull('video')" class="bg-white border-2 border-indigo-500 text-indigo-500 px-6 py-4 rounded-xl font-bold hover:bg-indigo-500 hover:text-white transition-all">
-                    Full Video (.mp4)
-                </button>
-                <button onclick="downloadFull('audio')" class="bg-white border-2 border-green-500 text-green-500 px-6 py-4 rounded-xl font-bold hover:bg-green-500 hover:text-white transition-all">
-                    Music Only (.mp3)
-                </button>
-                <button id="showReelsBtn" class="gradient-bg text-white px-6 py-4 rounded-xl font-bold hover:opacity-90 transition-all">
-                    Generate Reels
-                </button>
-                <button id="downloadAllReelsBtn" class="hidden bg-orange-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-orange-600 transition-all">
-                    Download All Reels
-                </button>
-            </div>
-
-            <!-- Reels Grid -->
-            <div id="reelsGridSection" class="hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-gray-800">Available Reel Segments</h3>
-                </div>
-                <div id="reelsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Segment Cards will be injected here -->
-                </div>
-            </div>
-        </section>
+            <span class="badge badge-warning">No Credentials</span>
+        </div>
     </div>
 
-    <script>
-        // Use 127.0.0.1 instead of localhost to avoid IPv6 issues
-        const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '') 
-            ? 'http://127.0.0.1:8000' 
-            : 'https://your-backend-url.onrender.com';
-        
-        console.log("Checking backend connection at:", API_BASE);
-        
-        const urlInput = document.getElementById('urlInput');
-        const fileInput = document.getElementById('fileInput');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const statusMsg = document.getElementById('statusMsg');
-        const resultsSection = document.getElementById('resultsSection');
-        const videoTitle = document.getElementById('videoTitle');
-        const videoDuration = document.getElementById('videoDuration');
-        const videoThumb = document.getElementById('videoThumb');
-        const reelsGrid = document.getElementById('reelsGrid');
-        const reelsGridSection = document.getElementById('reelsGridSection');
-        const showReelsBtn = document.getElementById('showReelsBtn');
-        const downloadAllReelsBtn = document.getElementById('downloadAllReelsBtn');
+    <!-- ── Tab: Dashboard ──────────────────────────────── -->
+    <div id="tab-dashboard" class="tab-content">
+        <div class="stat-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">Connected Accounts</div>
+                <div class="stat-value" id="statAccounts">0</div>
+                <div class="stat-desc">Instagram Business accounts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Videos Processed</div>
+                <div class="stat-value" id="statVideos">0</div>
+                <div class="stat-desc">Total uploads</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Segments Ready</div>
+                <div class="stat-value" id="statSegments">0</div>
+                <div class="stat-desc">30s reels awaiting schedule</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Scheduled</div>
+                <div class="stat-value" id="statScheduled">0</div>
+                <div class="stat-desc">Upcoming posts</div>
+            </div>
+        </div>
 
-        let currentVideoData = null;
-        let isUpload = false;
-        let reelUrls = [];
+        <div id="recentActivity" class="card">
+            <div class="card-header">
+                <span class="card-title">Recent Activity</span>
+            </div>
+            <div class="empty-state" id="activityEmpty">
+                <div class="empty-state-icon">📊</div>
+                <div class="empty-state-text">No activity yet</div>
+                <div class="empty-state-sub">Upload a video to get started</div>
+            </div>
+            <div id="activityList" style="display: none;"></div>
+        </div>
+    </div>
 
-        analyzeBtn.addEventListener('click', async () => {
-            const url = urlInput.value.trim();
-            const file = fileInput.files[0];
+    <!-- ── Tab: Upload ─────────────────────────────────── -->
+    <div id="tab-upload" class="tab-content" style="display: none;">
+        <!-- Select account -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <span class="card-title">Select Instagram Account</span>
+            </div>
+            <div id="accountSelector">
+                <div class="empty-state">
+                    <div class="empty-state-icon">👤</div>
+                    <div class="empty-state-text">No accounts connected</div>
+                    <button class="btn btn-primary" style="margin-top: 12px;" onclick="connectInstagram()">Connect Instagram Account</button>
+                </div>
+            </div>
+        </div>
 
-            if (!url && !file) {
-                alert("Please paste a URL or upload a file.");
-                return;
+        <!-- Upload Zone -->
+        <div class="card" id="uploadCard" style="display: none;">
+            <div class="card-header">
+                <span class="card-title">Upload Video</span>
+            </div>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-zone-icon">🎬</div>
+                <div class="upload-zone-text">Drop video here or click to upload</div>
+                <div class="upload-zone-sub">MP4, MOV, AVI, MKV — Up to 500MB</div>
+                <input type="file" id="fileInput" accept="video/*" style="display: none;">
+            </div>
+            <div id="uploadProgress" style="display: none; margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
+                    <span id="uploadStatus">Uploading...</span>
+                    <span id="uploadPercent">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="uploadProgressFill" style="width: 0%;"></div></div>
+            </div>
+            <div id="videoInfoCard" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600;" id="videoFileName"></div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                            Duration: <span id="videoDuration"></span> — <span id="segmentsEstimate"></span> segments
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="processVideo()">Split into Reels</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing -->
+        <div id="processingSection" style="display: none; margin-top: 24px;">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Processing</span>
+                    <span class="badge badge-warning" id="processingStatus">Splitting video...</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="processingProgress" style="width: 0%;"></div></div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 8px;" id="processingMsg">Initializing...</div>
+            </div>
+        </div>
+
+        <!-- Segments Result -->
+        <div id="segmentsSection" style="display: none; margin-top: 24px;">
+            <div class="section-title">
+                <span>Segments</span>
+                <span class="count" id="segmentsCount"></span>
+            </div>
+            <div class="input-group" style="margin-bottom: 24px;">
+                <input class="input" id="videoTopicInput" placeholder="Describe the video content (for better captions)..." />
+                <select class="input" id="captionStyleSelect" style="max-width: 160px;">
+                    <option value="engaging">Engaging</option>
+                    <option value="professional">Professional</option>
+                    <option value="humorous">Humorous</option>
+                    <option value="inspirational">Inspirational</option>
+                    <option value="educational">Educational</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="regenerateAllCaptions()">🔄 Re-gen All</button>
+            </div>
+            <div id="segmentsGrid" class="stat-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));"></div>
+        </div>
+
+        <!-- Upload history -->
+        <div id="uploadHistorySection" style="margin-top: 32px; display: none;">
+            <div class="section-title">
+                <span>Previous Uploads</span>
+                <span class="count" id="uploadHistoryCount"></span>
+            </div>
+            <div id="uploadHistoryList"></div>
+        </div>
+    </div>
+
+    <!-- ── Tab: Schedule ───────────────────────────────── -->
+    <div id="tab-schedule" class="tab-content" style="display: none;">
+        <div class="section-title">Scheduled Posts</div>
+
+        <div class="tabs" style="margin-bottom: 24px;">
+            <div class="tab active" onclick="filterSchedule('all')" data-filter="all">All</div>
+            <div class="tab" onclick="filterSchedule('pending')" data-filter="pending">Pending</div>
+            <div class="tab" onclick="filterSchedule('published')" data-filter="published">Published</div>
+            <div class="tab" onclick="filterSchedule('failed')" data-filter="failed">Failed</div>
+        </div>
+
+        <div class="card">
+            <div id="scheduleList">
+                <div class="empty-state" id="scheduleEmpty">
+                    <div class="empty-state-icon">📅</div>
+                    <div class="empty-state-text">No scheduled posts</div>
+                    <div class="empty-state-sub">Process a video and schedule its segments</div>
+                </div>
+                <div id="scheduleItems" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast Container ───────────────────────────────── -->
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── Script ────────────────────────────────────────── -->
+
+<script>
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://127.0.0.1:8000'
+        : (window.location.hostname === '' ? 'http://127.0.0.1:8000' : '/api');
+
+    // ── State ───────────────────────────────────────────
+    let state = {
+        accounts: [],
+        uploads: [],
+        segments: [],
+        scheduledPosts: [],
+        currentUpload: null,
+        currentSegments: [],
+        selectedAccountId: null,
+        scheduleFilter: 'all',
+    };
+
+    // ── Init ────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStatus();
+        loadAccounts();
+        loadUploads();
+        loadSchedules();
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+        // Drag & drop
+        const zone = document.getElementById('uploadZone');
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => {
+            e.preventDefault(); zone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+    });
+
+    // ── Navigation ──────────────────────────────────────
+    function switchTab(name) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.getElementById(`tab-${name}`).style.display = 'block';
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.nav-link[onclick*="${name}"]`)?.classList.add('active');
+
+        if (name === 'schedule') loadSchedules();
+        if (name === 'upload') { loadUploads(); loadAccounts(); }
+    }
+
+    // ── Toast ───────────────────────────────────────────
+    function toast(msg, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.innerHTML = msg;
+        container.appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 4000);
+    }
+
+    // ── API helpers ─────────────────────────────────────
+    async function api(path, opts = {}) {
+        const url = `${API_BASE}${path}`;
+        const res = await fetch(url, {
+            headers: { 'Content-Type': 'application/json', ...opts.headers },
+            ...opts,
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`API Error (${res.status}): ${err.slice(0, 200)}`);
+        }
+        return res.json();
+    }
+
+    // ── Load Status ─────────────────────────────────────
+    async function loadStatus() {
+        try {
+            const data = await api('/api/status');
+            if (!data.instagram_configured) {
+                document.getElementById('connectionBanner').style.display = 'block';
+            } else {
+                document.getElementById('connectionBanner').style.display = 'none';
             }
-
-            statusMsg.innerText = "Analyzing video... Please wait.";
-            statusMsg.classList.remove('hidden', 'text-red-500');
-            resultsSection.classList.add('hidden');
-            reelsGridSection.classList.add('hidden');
-            downloadAllReelsBtn.classList.add('hidden');
-
+            // Update scheduler status
             try {
-                if (file) {
-                    isUpload = true;
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const res = await fetch(`${API_BASE}/upload_analyze`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (!res.ok) throw new Error("Backend failed to process upload");
-                    currentVideoData = await res.json();
-                } else {
-                    isUpload = false;
-                    const res = await fetch(`${API_BASE}/analyze?url=${encodeURIComponent(url)}`);
-                    if (!res.ok) throw new Error("Backend failed to analyze URL");
-                    currentVideoData = await res.json();
+                const sched = await api('/api/scheduler/status');
+                if (sched.running) {
+                    document.getElementById('statScheduled').textContent = sched.jobs_count;
                 }
-
-                displayResults(currentVideoData);
-            } catch (err) {
-                console.error("Fetch Error:", err);
-                statusMsg.innerText = `Error: ${err.message || "Failed to connect to backend"}. Check backend terminal for details.`;
-                statusMsg.classList.add('text-red-500');
-            }
-        });
-
-        function displayResults(data) {
-            statusMsg.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            videoTitle.innerText = data.title;
-            videoDuration.innerText = `Duration: ${formatTime(data.duration)}`;
-            videoThumb.src = data.thumbnail || 'https://via.placeholder.com/640x360?text=Video+Ready';
+            } catch {}
+        } catch (e) {
+            console.error('Status check failed:', e);
         }
+    }
 
-        showReelsBtn.addEventListener('click', () => {
-            generateReels(currentVideoData.duration);
-            reelsGridSection.classList.remove('hidden');
-            downloadAllReelsBtn.classList.remove('hidden');
-            reelsGridSection.scrollIntoView({ behavior: 'smooth' });
-        });
+    // ── Accounts ────────────────────────────────────────
+    async function loadAccounts() {
+        try {
+            const data = await api('/api/auth/instagram/accounts');
+            state.accounts = data.accounts || [];
+            updateStats();
+            renderAccountSelector();
 
-        downloadAllReelsBtn.addEventListener('click', async () => {
-            if (reelUrls.length === 0) return;
-            
-            statusMsg.innerText = "Batch download started! Please check your downloads folder. Your browser may ask for permission to download multiple files.";
-            statusMsg.classList.remove('hidden', 'text-red-500');
-            
-            for (let i = 0; i < reelUrls.length; i++) {
-                const url = reelUrls[i];
-                // Trigger download by opening in a hidden iframe or simple window.open
-                // Using a small delay to ensure the browser captures each individual request
-                const link = document.createElement('a');
-                link.href = url;
-                link.target = "_blank";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for stability
+            if (state.accounts.length > 0 && !state.selectedAccountId) {
+                state.selectedAccountId = state.accounts[0].id;
+                document.getElementById('uploadCard').style.display = 'block';
             }
-            
-            setTimeout(() => statusMsg.classList.add('hidden'), 5000);
-        });
+            if (state.accounts.length === 0) {
+                document.getElementById('uploadCard').style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Load accounts failed:', e);
+        }
+    }
 
-        function generateReels(totalDuration) {
-            reelsGrid.innerHTML = '';
-            reelUrls = [];
-            const segmentDuration = 30;
-            const segments = Math.ceil(totalDuration / segmentDuration);
-
-            for (let i = 0; i < segments; i++) {
-                const start = i * segmentDuration;
-                const end = Math.min((i + 1) * segmentDuration, totalDuration);
-                const actualDuration = end - start;
-                const fname = `reel-${i + 1}.mp4`;
-
-                const card = document.createElement('div');
-                card.className = "bg-white rounded-xl shadow-md overflow-hidden flex flex-col border border-gray-100 hover:shadow-lg transition-all";
-                
-                const streamUrl = isUpload 
-                    ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&start=${start}&duration=${actualDuration}&filename=${encodeURIComponent(fname)}`
-                    : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&start=${start}&duration=${actualDuration}&filename=${encodeURIComponent(fname)}`;
-
-                reelUrls.push(streamUrl);
-
-                card.innerHTML = `
-                    <div class="aspect-video bg-black relative">
-                        <video controls class="w-full h-full" playsinline preload="metadata">
-                            <source src="${streamUrl}" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
+    function renderAccountSelector() {
+        const el = document.getElementById('accountSelector');
+        if (state.accounts.length === 0) {
+            el.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">👤</div>
+                    <div class="empty-state-text">No Instagram accounts connected</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                        Connect an Instagram Business/Creator account to start posting
                     </div>
-                    <div class="p-4 flex-1">
-                        <h4 class="font-bold text-gray-800">Segment ${i + 1}</h4>
-                        <p class="text-sm text-gray-500 mb-4">${formatTime(start)} - ${formatTime(end)}</p>
-                        <button onclick="downloadSegment('${streamUrl}', 'reel-${i+1}.mp4')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all">
-                            Download This Reel
-                        </button>
+                    <button class="btn btn-primary" onclick="connectInstagram()">
+                        🔗 Connect Instagram Account
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        el.innerHTML = `
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                ${state.accounts.map(a => `
+                    <div class="account-chip" style="cursor:pointer; ${state.selectedAccountId === a.id ? 'border-color: var(--accent);' : ''}"
+                         onclick="selectAccount(${a.id})">
+                        <img src="${a.profile_pic || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%239898b0%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'}" alt="">
+                        <span>@${a.username}</span>
+                        ${state.selectedAccountId === a.id ? '<span style="color:var(--accent);">●</span>' : ''}
                     </div>
-                `;
-                reelsGrid.appendChild(card);
+                `).join('')}
+                <button class="btn btn-ghost btn-xs" onclick="connectInstagram()">+ Add</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                Selected: <strong>@${state.accounts.find(a => a.id === state.selectedAccountId)?.username || 'None'}</strong>
+            </div>
+        `;
+    }
+
+    function selectAccount(id) {
+        state.selectedAccountId = id;
+        renderAccountSelector();
+    }
+
+    function connectInstagram() {
+        api('/api/auth/instagram/login').then(data => {
+            if (data.auth_url) {
+                window.open(data.auth_url, '_blank', 'width=800,height=700');
+                toast('🔗 Instagram login opened in new window. After authorizing, close the popup and refresh.', 'info');
+            } else {
+                toast('⚠️ Instagram not configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET in your .env file.', 'error');
             }
+        }).catch(e => toast(`❌ ${e.message}`, 'error'));
+    }
+
+    // ── Upload ──────────────────────────────────────────
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) uploadFile(file);
+    }
+
+    async function uploadFile(file) {
+        if (!state.selectedAccountId) {
+            toast('⚠️ Please select an Instagram account first', 'error');
+            return;
         }
 
-        function downloadSegment(url, filename) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            // For cross-origin streaming links, we want to force download instead of navigating
-            a.target = "_blank"; 
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        const progressEl = document.getElementById('uploadProgress');
+        progressEl.style.display = 'block';
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('instagram_account_id', state.selectedAccountId);
+
+        try {
+            // Upload
+            document.getElementById('uploadStatus').textContent = 'Uploading...';
+            const res = await fetch(`${API_BASE}/api/posts/upload`, { method: 'POST', body: formData });
+            if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+            const data = await res.json();
+
+            document.getElementById('uploadProgressFill').style.width = '100%';
+            document.getElementById('uploadPercent').textContent = '100%';
+            document.getElementById('uploadStatus').textContent = '✅ Uploaded';
+
+            state.currentUpload = data.upload;
+            const upload = data.upload;
+
+            document.getElementById('videoInfoCard').style.display = 'block';
+            document.getElementById('videoFileName').textContent = upload.original_filename;
+            document.getElementById('videoDuration').textContent = formatTime(upload.duration_seconds);
+            const segCount = Math.ceil(upload.duration_seconds / 30);
+            document.getElementById('segmentsEstimate').textContent = segCount;
+
+            toast(`✅ Uploaded: ${upload.original_filename} (${formatTime(upload.duration_seconds)})`);
+            progressEl.style.display = 'none';
+            loadUploads();
+        } catch (e) {
+            document.getElementById('uploadStatus').textContent = `❌ Error: ${e.message}`;
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    async function processVideo() {
+        const upload = state.currentUpload;
+        if (!upload) { toast('⚠️ No video uploaded', 'error'); return; }
+
+        const topic = document.getElementById('videoTopicInput').value || '';
+        const style = document.getElementById('captionStyleSelect').value;
+
+        document.getElementById('processingSection').style.display = 'block';
+        document.getElementById('segmentsSection').style.display = 'none';
+        document.getElementById('processingMsg').textContent = 'Splitting video into 30-second segments...';
+        document.getElementById('processingProgress').style.width = '30%';
+
+        try {
+            const formData = new FormData();
+            formData.append('segment_duration', '30');
+            formData.append('generate_captions', 'true');
+            formData.append('caption_style', style);
+            formData.append('video_topic', topic);
+
+            const res = await fetch(`${API_BASE}/api/posts/${upload.id}/process`, { method: 'POST', body: formData });
+            if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+            const data = await res.json();
+
+            document.getElementById('processingProgress').style.width = '100%';
+            document.getElementById('processingMsg').textContent = '✅ Processing complete!';
+            document.getElementById('processingStatus').className = 'badge badge-success';
+            document.getElementById('processingStatus').textContent = 'Complete';
+
+            state.currentSegments = data.segments || [];
+            renderSegments(state.currentSegments);
+            document.getElementById('segmentsSection').style.display = 'block';
+
+            toast(`✅ Video split into ${state.currentSegments.length} segments`);
+            loadUploads();
+            updateStats();
+        } catch (e) {
+            document.getElementById('processingMsg').textContent = `❌ Error: ${e.message}`;
+            document.getElementById('processingStatus').className = 'badge badge-error';
+            document.getElementById('processingStatus').textContent = 'Failed';
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    // ── Segments ────────────────────────────────────────
+    function renderSegments(segments) {
+        const grid = document.getElementById('segmentsGrid');
+        document.getElementById('segmentsCount').textContent = `(${segments.length} total)`;
+
+        if (segments.length === 0) {
+            grid.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><div class="empty-state-text">No segments</div></div>`;
+            return;
         }
 
-        function downloadFull(mode) {
-            const url = isUpload 
-                ? `${API_BASE}/stream_local?path=${encodeURIComponent(currentVideoData.temp_path)}&mode=${mode}`
-                : `${API_BASE}/stream?url=${encodeURIComponent(currentVideoData.url)}&mode=${mode}`;
-            
-            const ext = mode === 'audio' ? 'mp3' : 'mp4';
-            downloadSegment(url, `video.${ext}`);
+        grid.innerHTML = segments.map((seg, i) => `
+            <div class="segment-card">
+                <div class="segment-thumb">
+                    <span>🎬</span>
+                    <div class="segment-index">#${seg.segment_index + 1}</div>
+                </div>
+                <div class="segment-body">
+                    <div class="segment-time">${formatTime(seg.start_time)} — ${formatTime(seg.end_time)} (${seg.duration.toFixed(1)}s)</div>
+                    <div class="segment-caption" id="caption-display-${seg.id}">${escapeHtml(seg.caption || 'No caption')}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;" id="hashtags-display-${seg.id}">
+                        ${escapeHtml(seg.hashtags || '')}
+                    </div>
+                    <div class="segment-actions">
+                        <button class="btn btn-ghost btn-xs" onclick="editSegment(${seg.id})">✏️ Edit</button>
+                        <button class="btn btn-ghost btn-xs" onclick="regenerateSegmentCaption(${seg.id})">🔄 Caption</button>
+                        <button class="btn btn-primary btn-xs" onclick="openScheduleModal(${seg.id})">📅 Schedule</button>
+                        <button class="btn btn-danger btn-xs" onclick="deleteSegment(${seg.id})">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function editSegment(segmentId) {
+        const seg = state.currentSegments.find(s => s.id === segmentId);
+        if (!seg) return;
+
+        const caption = prompt('Edit caption:', seg.caption || '');
+        if (caption === null) return;
+
+        const hashtags = prompt('Edit hashtags:', seg.hashtags || '');
+        if (hashtags === null) return;
+
+        try {
+            const data = await api(`/api/posts/segments/${segmentId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ caption, hashtags }),
+            });
+            // Update local state
+            Object.assign(seg, data);
+            renderSegments(state.currentSegments);
+            toast('✅ Segment updated');
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    async function regenerateSegmentCaption(segmentId) {
+        const seg = state.currentSegments.find(s => s.id === segmentId);
+        if (!seg) return;
+
+        try {
+            const data = await api(`/api/posts/segments/${segmentId}/regenerate-caption`, {
+                method: 'POST',
+                body: JSON.stringify({ segment_id: segmentId, style: document.getElementById('captionStyleSelect').value }),
+            });
+            Object.assign(seg, { caption: data.caption, hashtags: data.hashtags });
+            renderSegments(state.currentSegments);
+            toast('✅ Caption regenerated');
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    async function regenerateAllCaptions() {
+        for (const seg of state.currentSegments) {
+            await regenerateSegmentCaption(seg.id);
+        }
+        toast('✅ All captions regenerated');
+    }
+
+    async function deleteSegment(segmentId) {
+        if (!confirm('Delete this segment?')) return;
+        try {
+            await api(`/api/posts/segments/${segmentId}`, { method: 'DELETE' });
+            state.currentSegments = state.currentSegments.filter(s => s.id !== segmentId);
+            renderSegments(state.currentSegments);
+            toast('🗑️ Segment deleted');
+            updateStats();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    // ── Schedule Modal ──────────────────────────────────
+    function openScheduleModal(segmentId) {
+        const seg = state.currentSegments.find(s => s.id === segmentId);
+        if (!seg) return;
+
+        // Get tomorrow at 10am as default
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0);
+        const defaultDate = tomorrow.toISOString().slice(0, 16);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal">
+                <div class="modal-title">📅 Schedule Segment #${seg.segment_index + 1}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                    "${(seg.caption || 'No caption').slice(0, 80)}..."
+                </div>
+                <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                    Post Date & Time (UTC)
+                </label>
+                <input class="input" id="scheduleDateTime" type="datetime-local" value="${defaultDate}">
+                <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                    ⏰ Posts persist across server restarts
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmSchedule(${segmentId}, this)">Schedule Post</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    async function confirmSchedule(segmentId, btn) {
+        const overlay = btn.closest('.modal-overlay');
+        const dateStr = overlay.querySelector('#scheduleDateTime').value;
+        if (!dateStr) { toast('⚠️ Please select a date/time', 'error'); return; }
+
+        const scheduled_at = new Date(dateStr).toISOString();
+
+        try {
+            const data = await api('/api/posts/schedule', {
+                method: 'POST',
+                body: JSON.stringify({
+                    segment_id: segmentId,
+                    instagram_account_id: state.selectedAccountId,
+                    scheduled_at: scheduled_at,
+                }),
+            });
+            overlay.remove();
+            toast(`✅ Scheduled for ${new Date(scheduled_at).toLocaleString()}`);
+            loadSchedules();
+            updateStats();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    // ── Schedule ────────────────────────────────────────
+    async function loadSchedules() {
+        try {
+            const data = await api('/api/posts/schedule');
+            state.scheduledPosts = data.posts || [];
+            renderSchedule();
+            updateStats();
+        } catch (e) {
+            console.error('Load schedules failed:', e);
+        }
+    }
+
+    function filterSchedule(filter) {
+        state.scheduleFilter = filter;
+        document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tabs .tab[data-filter="${filter}"]`).classList.add('active');
+        renderSchedule();
+    }
+
+    function renderSchedule() {
+        const list = document.getElementById('scheduleItems');
+        const empty = document.getElementById('scheduleEmpty');
+
+        let filtered = state.scheduledPosts;
+        if (state.scheduleFilter !== 'all') {
+            filtered = filtered.filter(p => p.status === state.scheduleFilter);
         }
 
-        function formatTime(seconds) {
-            const m = Math.floor(seconds / 60);
-            const s = Math.floor(seconds % 60);
-            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (filtered.length === 0) {
+            list.style.display = 'none';
+            empty.style.display = 'block';
+            return;
         }
 
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                urlInput.value = `File: ${fileInput.files[0].name}`;
-            }
-        });
-    </script>
+        empty.style.display = 'none';
+        list.style.display = 'block';
+        list.innerHTML = filtered.map((post, i) => {
+            const time = new Date(post.scheduled_at).toLocaleString();
+            const statusBadge = {
+                pending: '<span class="badge badge-warning">Pending</span>',
+                publishing: '<span class="badge badge-info">Publishing</span>',
+                published: '<span class="badge badge-success">Published</span>',
+                failed: '<span class="badge badge-error">Failed</span>',
+                cancelled: '<span class="badge badge-neutral">Cancelled</span>',
+            }[post.status] || `<span class="badge badge-neutral">${post.status}</span>`;
+
+            return `
+                <div class="schedule-item">
+                    <div class="schedule-index">#${i + 1}</div>
+                    <div class="schedule-info">
+                        <div class="schedule-info-name">Post #${post.id} ${statusBadge}</div>
+                        <div class="schedule-info-time">📅 ${time} ${post.published_at ? `— Published: ${new Date(post.published_at).toLocaleString()}` : ''}</div>
+                        ${post.instagram_permalink ? `<div class="schedule-info-time">🔗 <a href="${post.instagram_permalink}" target="_blank" style="color: var(--accent);">View on Instagram</a></div>` : ''}
+                        ${post.error_message ? `<div class="schedule-info-time" style="color: var(--accent);">⚠️ ${escapeHtml(post.error_message.slice(0, 100))}</div>` : ''}
+                    </div>
+                    <div class="schedule-actions">
+                        ${post.status === 'pending' ? `
+                            <button class="btn btn-ghost btn-xs" onclick="reschedulePost(${post.id})">🕐 Reschedule</button>
+                            <button class="btn btn-danger btn-xs" onclick="cancelPost(${post.id})">Cancel</button>
+                        ` : ''}
+                        ${post.status === 'failed' ? `<button class="btn btn-primary btn-xs" onclick="retryPost(${post.id})">🔄 Retry</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function reschedulePost(postId) {
+        const newDate = prompt('New date/time (YYYY-MM-DD HH:MM, UTC):');
+        if (!newDate) return;
+        try {
+            const scheduled_at = new Date(newDate).toISOString();
+            await api(`/api/posts/schedule/${postId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ scheduled_at }),
+            });
+            toast('✅ Post rescheduled');
+            loadSchedules();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    async function cancelPost(postId) {
+        if (!confirm('Cancel this scheduled post?')) return;
+        try {
+            await api(`/api/posts/schedule/${postId}`, { method: 'DELETE' });
+            toast('🗑️ Post cancelled');
+            loadSchedules();
+            updateStats();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    async function retryPost(postId) {
+        // Re-schedule for now + 5 minutes
+        const newDate = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        try {
+            await api(`/api/posts/schedule/${postId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ scheduled_at: newDate, status: 'pending' }),
+            });
+            toast('🔄 Post queued for retry in 5 minutes');
+            loadSchedules();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    // ── Upload History ──────────────────────────────────
+    async function loadUploads() {
+        try {
+            const data = await api('/api/posts/uploads');
+            state.uploads = data.uploads || [];
+            renderUploadHistory();
+            updateStats();
+        } catch (e) {
+            console.error('Load uploads failed:', e);
+        }
+    }
+
+    function renderUploadHistory() {
+        const section = document.getElementById('uploadHistorySection');
+        const list = document.getElementById('uploadHistoryList');
+        const count = document.getElementById('uploadHistoryCount');
+
+        if (state.uploads.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+        count.textContent = `(${state.uploads.length} total)`;
+
+        list.innerHTML = state.uploads.slice(0, 10).map(u => `
+            <div class="schedule-item">
+                <div class="schedule-index">🎬</div>
+                <div class="schedule-info">
+                    <div class="schedule-info-name">${escapeHtml(u.original_filename)}</div>
+                    <div class="schedule-info-time">
+                        ${formatTime(u.duration_seconds)} — ${u.segments_count} segments
+                        <span class="badge badge-neutral" style="margin-left: 8px;">${u.status}</span>
+                    </div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                    ${new Date(u.created_at).toLocaleDateString()}
+                </div>
+                <button class="btn btn-danger btn-xs" onclick="deleteUpload(${u.id})">🗑️</button>
+            </div>
+        `).join('');
+    }
+
+    async function deleteUpload(uploadId) {
+        if (!confirm('Delete this upload and all its segments?')) return;
+        try {
+            await api(`/api/posts/uploads/${uploadId}`, { method: 'DELETE' });
+            toast('🗑️ Upload deleted');
+            loadUploads();
+            updateStats();
+        } catch (e) {
+            toast(`❌ ${e.message}`, 'error');
+        }
+    }
+
+    // ── Stats ───────────────────────────────────────────
+    function updateStats() {
+        document.getElementById('statAccounts').textContent = state.accounts.length;
+
+        const videos = state.uploads.length;
+        document.getElementById('statVideos').textContent = videos;
+
+        const readySegments = state.uploads.reduce((sum, u) => sum + (u.segments_count || 0), 0);
+        document.getElementById('statSegments').textContent = readySegments;
+
+        const scheduled = state.scheduledPosts.filter(p => p.status === 'pending').length;
+        document.getElementById('statScheduled').textContent = scheduled;
+
+        // Activity
+        if (state.uploads.length > 0) {
+            document.getElementById('activityEmpty').style.display = 'none';
+            document.getElementById('activityList').style.display = 'block';
+            document.getElementById('activityList').innerHTML = state.uploads.slice(0, 5).map(u => `
+                <div class="schedule-item">
+                    <div class="schedule-index">📹</div>
+                    <div class="schedule-info">
+                        <div class="schedule-info-name">${escapeHtml(u.original_filename)}</div>
+                        <div class="schedule-info-time">${formatTime(u.duration_seconds)} — ${u.status}</div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">${new Date(u.created_at).toLocaleDateString()}</div>
+                </div>
+            `).join('');
+        }
+    }
+
+    // ── Utilities ───────────────────────────────────────
+    function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ── Polling (every 10s for schedule updates) ────────
+    setInterval(() => {
+        if (document.getElementById('tab-schedule').style.display !== 'none') {
+            loadSchedules();
+        }
+    }, 10000);
+</script>
+
 </body>
 </html>
