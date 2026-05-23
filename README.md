@@ -113,7 +113,7 @@ All powered by a **CrewAI agentic framework** with specialized agents:
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/reelforge.git
+git clone https://github.com/punithkrishnakeepudi/video-to-reels.git
 cd reelforge
 
 pip install -r backend/requirements.txt
